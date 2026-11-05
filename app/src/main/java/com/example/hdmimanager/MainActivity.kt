@@ -24,10 +24,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 48, 48, 48)
         }
-        val title = TextView(this).apply {
-            text = "Gestionnaire d'écrans"
-            textSize = 26f
-        }
+        val title = TextView(this).apply { text = "Gestionnaire d'écrans"; textSize = 26f }
         status = TextView(this).apply { textSize = 16f }
         val pickBtn = Button(this).apply { text = "🖥️ Choisir l'écran du dashboard" }
         val closeBtn = Button(this).apply { text = "❌ Fermer le dashboard" }
@@ -42,22 +39,23 @@ class MainActivity : Activity() {
 
     private fun allDisplays(): List<Display> = dm.displays.toList()
 
+    private fun displayName(d: Display): String = try { d.name ?: "Écran ${d.displayId}" } catch (e: Exception) { "Écran ${d.displayId}" }
+
     private fun refreshStatus() {
         val list = allDisplays()
         val sb = StringBuilder("Écrans détectés (${list.size}) :\n")
         list.forEach {
-            sb.append("• [ID ${it.displayId}] ${it.name} — ")
-            sb.append(if (it.displayId == Display.DEFAULT_DISPLAY) "écran du téléphone" else "externe")
-            sb.append("\n")
+            val type = if (it.displayId == Display.DEFAULT_DISPLAY) "📱 Téléphone" else "🖥️ Externe"
+            sb.append("• [ID ${it.displayId}] $type — ${displayName(it)}\n")
         }
         status.text = sb.toString()
     }
 
     private fun showDisplayPicker() {
         val list = allDisplays()
-        val names = list.map {
-            val type = if (it.displayId == Display.DEFAULT_DISPLAY) "📱 Téléphone" else "🖥️ Externe"
-            "$type — ${it.name} (ID ${it.displayId})"
+        val names = list.map { d ->
+            val type = if (d.displayId == Display.DEFAULT_DISPLAY) "📱 Téléphone" else "🖥️ Externe"
+            "$type — ${displayName(d)} (ID ${d.displayId})"
         }.toTypedArray()
 
         AlertDialog.Builder(this)
@@ -69,13 +67,16 @@ class MainActivity : Activity() {
 
     private fun startDashboard(display: Display) {
         stopDashboard()
+        // Capture AVANT l'affichage : displayId et nom ne peuvent plus être null
+        val id = display.displayId
+        val name = displayName(display)
         presentation = DashboardPresentation(this, display).also {
             try {
                 it.show()
-                status.text = "✅ Dashboard affiché sur : ${display.name} (ID ${it.display.displayId})"
+                status.text = "✅ Dashboard affiché sur : $name (ID $id)"
             } catch (e: Exception) {
                 presentation = null
-                status.text = "⚠️ Impossible d'afficher sur cet écran : ${e.message}"
+                status.text = "⚠️ Impossible d'afficher sur $name : ${e.message}"
             }
         }
     }

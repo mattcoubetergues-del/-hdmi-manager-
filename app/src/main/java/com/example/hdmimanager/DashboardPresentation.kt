@@ -35,30 +35,26 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val safeName = try { display.name ?: "Écran ${display.displayId}" } catch (e: Exception) { "Écran ${display.displayId}" }
+        val mode = try { display.mode } catch (e: Exception) { null }
+        val res = if (mode != null) "${mode.physicalWidth}x${mode.physicalHeight}" else "?"
+
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setBackgroundColor(colors[index])
         }
-
         val title = TextView(context).apply {
-            text = "🖥️ DASHBOARD — ${display.name}"
-            textSize = 36f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
+            text = "🖥️ DASHBOARD — $safeName"
+            textSize = 36f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
         }
         clock = TextView(context).apply {
-            textSize = 90f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
+            textSize = 90f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
         }
         val info = TextView(context).apply {
-            text = "${display.name} · ${display.mode?.physicalWidth ?: "?"}x${display.mode?.physicalHeight ?: "?"}"
-            textSize = 22f
-            gravity = Gravity.CENTER
-            setTextColor(Color.LTGRAY)
+            text = "$safeName · $res"
+            textSize = 22f; gravity = Gravity.CENTER; setTextColor(Color.LTGRAY)
         }
-
         val themeBtn = Button(context).apply { text = "🎨 Changer le thème" }
         val closeBtn = Button(context).apply { text = "❌ Fermer le dashboard" }
         themeBtn.setOnClickListener {
