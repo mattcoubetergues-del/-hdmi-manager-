@@ -125,6 +125,14 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
             }
         }
 
+        fun gear(sz: Float, teeth: Int, color: Int): GearView {
+            val g = GearView(context, sz, teeth, color)
+            g.layoutParams = LinearLayout.LayoutParams(sz.toInt(), sz.toInt()).apply {
+                setMargins(18, 0, 18, 0)
+            }
+            return g
+        }
+
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -133,9 +141,6 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
         }
 
         val header = LinearLayout(context).apply { gravity = Gravity.CENTER }
-        val g1 = GearView(context, 64f, 10, brass)
-        val g2 = GearView(context, 48f, 8, copper)
-        val g3 = GearView(context, 64f, 10, brass)
         flame = TextView(context).apply { text = "🔥"; textSize = 30f }
         val title = TextView(context).apply {
             text = "☁️ TABLEAU DE BORD VAPEUR ☁️"
@@ -143,7 +148,9 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
             typeface = Typeface.create("serif", Typeface.BOLD)
             setShadowLayer(10f, 0f, 0f, Color.argb(150, 255, 190, 80))
         }
-        listOf(g1, g2, title, g3, flame).forEach { header.addView(it) }
+        // Grand engrenages à gauche, petit au centre, grand à droite — sens alternés
+        listOf(gear(96f, 12, brass), gear(60f, 9, copper), gear(96f, 12, brass))
+            .forEach { header.addView(it) }
         pulsate(flame)
 
         clock = TextView(context).apply {
@@ -180,7 +187,7 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
         p3.addView(btcView)
 
         statusView = TextView(context).apply {
-            text = "⚙ $safeName · machines v2.0"
+            text = "⚙ $safeName · machines v2.1"
             textSize = 14f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
         }
         val closeBtn = Button(context).apply { text = "🕯️ Éteindre la machine" }
