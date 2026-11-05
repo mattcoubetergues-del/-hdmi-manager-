@@ -99,7 +99,7 @@ class BrassPanel(ctx: Context, private val scale: Float) : LinearLayout(ctx) {
 }
 
 // ══════════ Manomètre ══════════
-class GaugeView(ctx: Context, sizePx: Float, private val label: String) : View(ctx) {
+class GaugeView(ctx: Context, private val sizePx: Float, private val label: String) : View(ctx) {
     private fun dp(v: Float): Float = v * sizePx / 300f
     private val dial = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(24, 18, 12) }
     private val tick = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -140,7 +140,7 @@ class GaugeView(ctx: Context, sizePx: Float, private val label: String) : View(c
 // ══════════ Dashboard ══════════
 class DashboardPresentation(ctx: Context, private val display: Display) : Presentation(ctx, display) {
     private fun s(v: Float): Float = v * scale
-    private lateinit var scale: Float
+    private var scale: Float = 1f
     private lateinit var clock: TextView
     private lateinit var dateView: TextView
     private lateinit var btcView: TextView
