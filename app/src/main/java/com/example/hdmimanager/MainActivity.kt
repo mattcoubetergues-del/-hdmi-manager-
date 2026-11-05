@@ -26,7 +26,7 @@ class MainActivity : Activity() {
             setPadding(48, 48, 48, 48)
         }
         layout.addView(TextView(this).apply {
-            text = "Gestionnaire d'écrans\nLe dashboard s'affiche sur l'écran externe.\n"(0, 0) + ""
+            text = "Gestionnaire d'écrans\nLe dashboard s'affiche sur l'écran externe."
             textSize = 16f
         })
         setContentView(layout)
