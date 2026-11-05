@@ -32,7 +32,7 @@ class GearView(ctx: Context, sizePx: Float, private val teeth: Int, color: Int) 
         this.color = color
         setShadowLayer(size * 0.10f, 0f, 0f, Color.argb(160, 255, 140, 40))
     }
-    private val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(14, 10, 6) }
+    private val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply { setColor(Color.rgb(14, 10, 6) }
     private var angle = 0f
     private val main = Handler(Looper.getMainLooper())
     private val dir = if (teeth % 2 == 0) 1f else -1f
@@ -83,7 +83,7 @@ class BrassPanel(ctx: Context, private val scale: Float) : LinearLayout(ctx) {
         c.drawRoundRect(s(5f), s(5f), w - s(5f), h - s(5f), r, r, frame)
         frame.color = copper; frame.strokeWidth = s(5f)
         c.drawRoundRect(s(5f), s(5f), w - s(5f), h - s(5f), r, r, frame)
-        frame.color = Color.argb(90, 250, 235, 200); frame.strokeWidth = s(2f)
+        frame.setColor(Color.argb(90, 250, 235, 200); frame.strokeWidth = s(2f)
         c.drawRoundRect(s(14f), s(14f), w - s(14f), h - s(14f), r - s(9f), r - s(9f), frame)
         val m = s(24f); val rr = s(10f)
         val xs = floatArrayOf(m, w - m, m, w - m)
@@ -101,15 +101,15 @@ class BrassPanel(ctx: Context, private val scale: Float) : LinearLayout(ctx) {
 // ══════════ Manomètre ══════════
 class GaugeView(ctx: Context, private val sizePx: Float, private val label: String) : View(ctx) {
     private fun dp(v: Float): Float = v * sizePx / 300f
-    private val dial = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(24, 18, 12) }
+    private val dial = Paint(Paint.ANTI_ALIAS_FLAG).apply { setColor(Color.rgb(24, 18, 12) }
     private val tick = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(245, 235, 210); strokeWidth = dp(3f); setStyle(Paint.Style.STROKE) }
+        setColor(Color.rgb(245, 235, 210); strokeWidth = dp(3f); setStyle(Paint.Style.STROKE) }
     private val redzone = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(200, 200, 40, 40); setStyle(Paint.Style.STROKE); strokeWidth = dp(12f) }
+        setColor(Color.argb(200, 200, 40, 40); setStyle(Paint.Style.STROKE); strokeWidth = dp(12f) }
     private val needleP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(255, 170, 60); strokeWidth = dp(5f) }
+        setColor(Color.rgb(255, 170, 60); strokeWidth = dp(5f) }
     private val txt = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(245, 235, 210); textSize = dp(22f); textAlign = Paint.Align.CENTER
+        setColor(Color.rgb(245, 235, 210); textSize = dp(22f); textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD }
     private var value = 0f // 0..1
 
