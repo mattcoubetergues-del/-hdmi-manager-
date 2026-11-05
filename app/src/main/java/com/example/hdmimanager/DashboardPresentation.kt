@@ -2,7 +2,12 @@ package com.example.hdmimanager
 
 import android.app.Presentation
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -11,9 +16,7 @@ import android.os.Looper
 import android.view.Display
 import android.view.Gravity
 import android.view.View
-import android.view.animation.LinearInterpolator
 import android.widget.Button
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.net.HttpURLConnection
@@ -21,7 +24,77 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import org.json.JSONArray
 import org.json.JSONObject
+
+// ────────────── Engrenage dessiné (dents réelles, rotation continue) ──────────────
+class GearView(context: Context, size: Float, teeth: Int, color: Int) : View(context) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+    private val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = Color.argb(255, 24, 17, 10)
+    }
+    private var angle = 0f
+    private val main = Handler(Looper.getMainLooper())
+    private val dir = if (teeth % 2 == 0) 1f else -1f
+
+    private val spin = object : Runnable {
+        override fun run() {
+            angle += 0.6f * dir
+            invalidate()
+            main.postDelayed(this, 16)
+        }
+    }
+    override fun onAttachedToWindow() { super.onAttachedToWindow(); main.post(spin) }
+    override fun onDetachedFromWindow() { main.removeCallbacks(spin); super.onDetachedFromWindow() }
+    override fun onDraw(c: Canvas) {
+        super.onDraw(c)
+        val cx = width / 2f; val cy = height / 2f; val r = size / 2f
+        c.save(); c.rotate(angle, cx, cy)
+        val tooth = 2f * Math.PI.toFloat() / teeth
+        for (i in 0 until teeth) {
+            c.save(); c.rotate(i * tooth * 57.2958f, cx, cy)
+            c.drawRect(cx - size * 0.055f, cy - r, cx + size * 0.055f, cy - r * 0.72f, paint)
+            c.restore()
+        }
+        c.drawCircle(cx, cy, r * 0.74f, paint)
+        c.drawCircle(cx, cy, r * 0.30f, hole)
+        c.drawRect(cx - size * 0.03f, cy - r * 0.3f, cx + size * 0.03f, cy + r * 0.3f, paint)
+        c.restore()
+    }
+}
+
+// ────────────── Manomètre analogique (cadran + aiguille) ──────────────
+class PressureGauge(context: Context) : View(context) {
+    private var ratio = 0f
+    private val brass = Color.rgb(183, 141, 65)
+    private val body = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        setStyle(Paint.Style.STROKE); strokeWidth = 8f; this.color = brass
+    }
+    private val tick = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 3f; this.color = brass }
+    private val needle = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        strokeWidth = 6f; this.color = Color.rgb(255, 120, 40)
+    }
+    private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = brass; textSize = 30f; textAlign = Paint.Align.CENTER
+        typeface = Typeface.SERIF
+    }
+    fun setValue(r: Float) { ratio = r.coerceIn(0f, 1f); invalidate() }
+    override fun onDraw(c: Canvas) {
+        super.onDraw(c)
+        val cx = width / 2f; val cy = height * 0.85f; val r = width * 0.42f
+        c.drawCircle(cx, cy, r, body)
+        for (i in 0..10) {
+            val a = Math.PI + Math.PI * i / 10.0
+            c.drawLine(cx + (r * 0.82 * Math.cos(a)).toFloat(), cy + (r * 0.82 * Math.sin(a)).toFloat(),
+                       cx + (r * Math.cos(a)).toFloat(), cy + (r * Math.sin(a)).toFloat(), tick)
+        }
+        c.drawText("PRESSION hPa", cx, cy - r * 0.35f, label)
+        val a = Math.PI + Math.PI * ratio
+        c.drawLine(cx, cy, cx + (r * 0.78 * Math.cos(a)).toFloat(),
+                   cy + (r * 0.78 * Math.sin(a)).toFloat(), needle)
+        c.drawCircle(cx, cy, 10f, needle)
+    }
+}
 
 class DashboardPresentation(context: Context, display: Display) : Presentation(context, display) {
 
@@ -31,8 +104,11 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
     private lateinit var clock: TextView
     private lateinit var dateView: TextView
     private lateinit var weatherView: TextView
-    private lateinit var gauge: LinearLayout
+    private lateinit var forecastView: TextView
     private lateinit var btcView: TextView
+    private lateinit var statusView: TextView
+    private lateinit var gauge: PressureGauge
+    private lateinit var flame: TextView
 
     private val brass = Color.rgb(183, 141, 65)
     private val copper = Color.rgb(140, 84, 42)
@@ -40,14 +116,25 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val safeName = try {
-            display.name ?: "Écran ${display.displayId}"
-        } catch (e: Exception) { "Écran ${display.displayId}" }
+        val safeName = try { display.name ?: "Écran ${display.displayId}" }
+                       catch (e: Exception) { "Écran ${display.displayId}" }
 
         val bg = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.rgb(38, 28, 16), Color.rgb(20, 14, 8)))
-        bg.setStroke(6, copper)
+            intArrayOf(Color.rgb(40, 29, 17), Color.rgb(18, 12, 7)))
+        bg.setStroke(8, copper)
+
+        fun card(): LinearLayout {
+            val d = GradientDrawable().apply {
+                cornerRadius = 30f; setStroke(4, copper)
+                setColor(Color.argb(100, 30, 21, 12))
+            }
+            return LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                background = d
+                setPadding(44, 26, 44, 26)
+            }
+        }
 
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -56,174 +143,138 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
             setPadding(60, 40, 60, 40)
         }
 
-        // En-tête : engrenages animés + titre
+        // En-tête : engrenages dessinés + titre + chaudière
         val header = LinearLayout(context).apply { gravity = Gravity.CENTER }
-        val gearL = gearView()
-        val gearR = gearView()
-        spin(gearL, 12000L)
-        spin(gearR, 12000L)
+        val g1 = GearView(context, 64f, 10, brass)
+        val g2 = GearView(context, 48f, 8, copper)
+        val g3 = GearView(context, 64f, 10, brass)
+        flame = TextView(context).apply { text = "🔥"; textSize = 30f }
         val title = TextView(context).apply {
-            text = "TABLEAU DE BORD"
-            textSize = 34f
-            setTextColor(brass)
+            text = "☁️ TABLEAU DE BORD VAPEUR ☁️"
+            textSize = 32f; setTextColor(brass)
             typeface = Typeface.create("serif", Typeface.BOLD)
-            setShadowLayer(8f, 0f, 0f, Color.argb(160, 255, 200, 90))
+            setShadowLayer(10f, 0f, 0f, Color.argb(150, 255, 190, 80))
         }
-        listOf(gearL, title, gearR).forEach { header.addView(it) }
+        listOf(g1, g2, title, g3, flame).forEach { header.addView(it) }
+        pulsate(flame)
 
-        // Horloge
+        // Horloge + date
         clock = TextView(context).apply {
-            textSize = 100f
-            setTextColor(cream)
-            gravity = Gravity.CENTER
+            textSize = 96f; setTextColor(cream); gravity = Gravity.CENTER
             typeface = Typeface.MONOSPACE
-            setShadowLayer(15f, 0f, 0f, Color.argb(120, 255, 170, 40))
+            setShadowLayer(18f, 0f, 0f, Color.argb(130, 255, 170, 40))
         }
         dateView = TextView(context).apply {
-            textSize = 24f
-            setTextColor(brass)
-            gravity = Gravity.CENTER
+            textSize = 24f; setTextColor(brass); gravity = Gravity.CENTER
             typeface = Typeface.create("serif", Typeface.ITALIC)
         }
 
-        // Panneau météo + jauge de pression
-        val panel1 = panelCard()
+        // Rangée 1 : météo + manomètre
+        val row1 = LinearLayout(context).apply { gravity = Gravity.CENTER }
+        val p1 = card()
         weatherView = TextView(context).apply {
-            text = "⏳ Baromètre en chauffe…"
-            textSize = 20f
-            setTextColor(cream)
-            gravity = Gravity.CENTER
-            typeface = Typeface.SERIF
+            text = "⏳ La chaudière monte en pression…"
+            textSize = 20f; setTextColor(cream); gravity = Gravity.CENTER; typeface = Typeface.SERIF
         }
-        gauge = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
+        forecastView = TextView(context).apply {
+            textSize = 16f; setTextColor(brass); gravity = Gravity.CENTER; typeface = Typeface.SERIF
         }
-        panel1.addView(weatherView)
-        panel1.addView(gauge)
+        p1.addView(weatherView); p1.addView(forecastView)
+        val p2 = card()
+        gauge = PressureGauge(context)
+        gauge.layoutParams = LinearLayout.LayoutParams(460, 300)
+        p2.addView(gauge)
+        listOf(p1, p2).forEach { row1.addView(it) }
 
-        // Panneau Bitcoin
-        val panel2 = panelCard()
+        // Rangée 2 : Bitcoin
+        val p3 = card()
         btcView = TextView(context).apply {
-            text = "⏳ Mineur au travail…"
-            textSize = 20f
-            setTextColor(cream)
-            gravity = Gravity.CENTER
-            typeface = Typeface.SERIF
+            text = "⏳ Les mineurs réchauffent les machines…"
+            textSize = 20f; setTextColor(cream); gravity = Gravity.CENTER; typeface = Typeface.SERIF
         }
-        panel2.addView(btcView)
+        p3.addView(btcView)
 
-        val nameLine = TextView(context).apply {
-            text = "⚙ $safeName"
-            textSize = 15f
-            setTextColor(Color.GRAY)
-            gravity = Gravity.CENTER
+        statusView = TextView(context).apply {
+            text = "⚙ $safeName · machines hypothétiques v2.0"
+            textSize = 14f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
         }
         val closeBtn = Button(context).apply { text = "🕯️ Éteindre la machine" }
         closeBtn.setOnClickListener { dismiss() }
 
-        listOf(header, clock, dateView, panel1, panel2, closeBtn, nameLine).forEach {
+        listOf(header, clock, dateView, row1, p3, closeBtn, statusView).forEach {
             root.addView(it, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 20, 0, 20) })
+                LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 18, 0, 18) })
         }
         setContentView(root)
 
         main.post(tick)
+        refreshApis()
+    }
+
+    private fun pulsate(v: TextView) {
+        v.animate().scaleX(1.3f).scaleY(1.3f).setDuration(500).withEndAction {
+            v.animate().scaleX(1f).scaleY(1f).setDuration(500).withEndAction { pulsate(v) }.start()
+        }.start()
+    }
+
+    private fun refreshApis() {
         Thread { fetchWeather() }.start()
         Thread { fetchBitcoin() }.start()
+        main.postDelayed({ refreshApis() }, 600_000L) // rafraîchi toutes les 10 min
     }
 
-    private fun gearView(): TextView = TextView(context).apply {
-        text = "⚙"
-        textSize = 34f
-        setTextColor(brass)
-    }
+    private fun get(url: String): String =
+        (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 8000; readTimeout = 8000
+            setRequestProperty("Accept", "application/json")
+        }.inputStream.bufferedReader().readText()
 
-    private fun spin(v: View, duration: Long) {
-        v.animate().rotationBy(360f).setDuration(duration)
-            .setInterpolator(LinearInterpolator())
-            .withEndAction { v.rotation = 0f; spin(v, duration) }
-            .start()
-    }
-
-    private fun panelCard(): LinearLayout {
-        val card = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 26f
-            setStroke(4, copper)
-            setColor(Color.argb(90, 28, 20, 12))
-        }
-        return LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            background = card
-            setPadding(40, 26, 40, 26)
-        }
-    }
-
-    // ── API gratuite Open-Meteo (météo, sans clé) ──
+    // ── Open-Meteo : météo actuelle + prévisions 3 créneaux ──
     private fun fetchWeather() {
         try {
-            val url = URL("https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35&current=temperature_2m,wind_speed_10m,surface_pressure")
-            val json = JSONObject((url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 8000
-                readTimeout = 8000
-            }.inputStream.bufferedReader().readText())
+            val json = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35&current=temperature_2m,wind_speed_10m,relative_humidity_2m,surface_pressure&hourly=temperature_2m&forecast_days=1"))
             val c = json.getJSONObject("current")
+            val h = json.getJSONObject("hourly")
+            val times = h.getJSONArray("time")
+            val temps = h.getJSONArray("temperature_2m")
+            val nowHour = SimpleDateFormat("HH", Locale.US).format(Date()).toInt()
+            val sb = StringBuilder("PRÉVISIONS : ")
+            var count = 0
+            for (i in 0 until times.length() && count < 3) {
+                val hr = times.getString(i).substring(11, 13).toInt()
+                if (hr > nowHour && hr % 3 == 0) {
+                    sb.append(String.format(Locale.FRANCE, "%02dh %,.0f°C   ", hr, temps.getDouble(i)))
+                    count++
+                }
+            }
             val pressure = c.getDouble("surface_pressure")
             main.post {
-                weatherView.text = "🌡️ ${c.getDouble("temperature_2m")}°C   💨 ${c.getDouble("wind_speed_10m")} km/h"
-                buildGauge(pressure)
+                weatherView.text = String.format(Locale.FRANCE,
+                    "🌡️ %,.1f°C   💨 %,.0f km/h   💧 %d%%",
+                    c.getDouble("temperature_2m"), c.getDouble("wind_speed_10m"),
+                    c.getInt("relative_humidity_2m"))
+                forecastView.text = sb.toString()
+                gauge.setValue((pressure / 1100.0).toFloat())
             }
         } catch (e: Exception) {
             main.post { weatherView.text = "🌡️ Vapeurs indisponibles : ${e.message}" }
         }
     }
 
-    private fun buildGauge(hpa: Double) {
-        gauge.removeAllViews()
-        val ratio = (hpa / 1100.0).coerceIn(0.0, 1.0)
-        val label = TextView(context).apply {
-            text = String.format(Locale.FRANCE, "⏲️ Pression : %.0f hPa", hpa)
-            textSize = 18f
-            setTextColor(brass)
-            typeface = Typeface.SERIF
-        }
-        val track = FrameLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(700, 34)
-            background = GradientDrawable().apply {
-                cornerRadius = 12f
-                setColor(Color.argb(70, 0, 0, 0))
-                setStroke(2, copper)
-            }
-        }
-        val fill = View(context).apply {
-            background = GradientDrawable().apply {
-                cornerRadius = 12f
-                setColor(Color.rgb(255, 170, 40))
-            }
-        }
-        track.addView(fill, FrameLayout.LayoutParams(
-            (700 * ratio).toInt(), FrameLayout.LayoutParams.MATCH_PARENT))
-        gauge.addView(label)
-        gauge.addView(track)
-    }
-
-    // ── API gratuite CoinGecko (Bitcoin, sans clé) ──
+    // ── CoinGecko : Bitcoin + variation 24 h ──
     private fun fetchBitcoin() {
         try {
-            val url = URL("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur,usd")
-            val json = JSONObject((url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 8000
-                readTimeout = 8000
-                setRequestProperty("Accept", "application/json")
-            }.inputStream.bufferedReader().readText())
+            val json = JSONObject(get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur,usd&include_24hr_change=true"))
             val btc = json.getJSONObject("bitcoin")
+            val chg = btc.getDouble("eur_24h_change")
+            val arrow = if (chg >= 0) "📈" else "📉"
             main.post {
-                btcView.text = String.format(
-                    "⛏️ BITCOIN — %s € · %s $",
+                btcView.text = String.format(Locale.FRANCE,
+                    "⛏️ BITCOIN  %s €  ·  %s $   %s %,.1f%% (24 h)",
                     java.text.NumberFormat.getIntegerInstance(Locale.FRANCE).format(btc.getLong("eur")),
-                    java.text.NumberFormat.getIntegerInstance(Locale.US).format(btc.getLong("usd")))
+                    java.text.NumberFormat.getIntegerInstance(Locale.US).format(btc.getLong("usd")),
+                    arrow, chg)
             }
         } catch (e: Exception) {
             main.post { btcView.text = "⛏️ Machine hors ligne : ${e.message}" }
@@ -241,7 +292,7 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
     }
 
     override fun onStop() {
-        main.removeCallbacks(tick)
+        main.removeCallbacksAndMessages(null)
         super.onStop()
     }
 }
