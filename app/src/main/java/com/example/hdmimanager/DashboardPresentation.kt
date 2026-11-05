@@ -4,7 +4,11 @@ import android.app.Presentation
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -25,8 +29,15 @@ import org.json.JSONObject
 
 // ────────────── Engrenage dessiné (dents réelles, rotation continue) ──────────────
 class GearView(context: Context, private val size: Float, private val teeth: Int, color: Int) : View(context) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        setShadowLayer(8f, 3f, 3f, Color.argb(140, 0, 0, 0))
+    }
     private val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.argb(255, 24, 17, 10) }
+    private val shine = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = Color.argb(90, 255, 235, 180)
+        setStyle(Paint.Style.STROKE); strokeWidth = 3f
+    }
     private var angle = 0f
     private val main = Handler(Looper.getMainLooper())
     private val dir = if (teeth % 2 == 0) 1f else -1f
@@ -52,36 +63,96 @@ class GearView(context: Context, private val size: Float, private val teeth: Int
         }
         c.drawCircle(cx, cy, r * 0.74f, paint)
         c.drawCircle(cx, cy, r * 0.30f, hole)
+        c.drawCircle(cx, cy, r * 0.52f, shine) // reflet métallique
         c.drawRect(cx - size * 0.03f, cy - r * 0.3f, cx + size * 0.03f, cy + r * 0.3f, paint)
         c.restore()
     }
 }
 
-// ────────────── Manomètre analogique (cadran + aiguille) ──────────────
+// ────────────── Cadre "plaque de laiton rivetée" ──────────────
+class BrassPanel(context: Context, light: Int, dark: Int) : LinearLayout(context) {
+    private val lightC = light; private val darkC = dark
+    private val rivet = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val frame = Paint(Paint.ANTI_ALIAS_FLAG).apply { setStyle(Paint.Style.STROKE); strokeWidth = 6f }
+    private val grad = LinearGradient(0f, 0f, 0f, height.toFloat(),
+        lightC, darkC, Shader.TileMode.CLAMP)
+
+    init {
+        orientation = VERTICAL
+        gravity = Gravity.CENTER
+        setPadding(52, 34, 52, 34)
+        setWillNotDraw(false)
+    }
+
+    override fun onDraw(c: Canvas) {
+        super.onDraw(c)
+        val w = width.toFloat(); val h = height.toFloat()
+        val radius = 34f
+        // Fond laiton avec dégradé
+        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(0f, 0f, 0f, h, lighten(lightC, 1.15f), darken(darkC, 0.7f), Shader.TileMode.CLAMP)
+        }
+        c.drawRoundRect(0f, 0f, w, h, radius, radius, bg)
+        // Bordure cuivre foncé + liseré clair
+        frame.color = darken(darkC, 0.55f); frame.strokeWidth = 8f
+        c.drawRoundRect(3f, 3f, w - 3, h - 3, radius, radius, frame)
+        frame.color = Color.argb(120, 255, 230, 170); frame.strokeWidth = 2f
+        c.drawRoundRect(10f, 10f, w - 10, h - 10, radius - 7, radius - 7, frame)
+        // 4 rivets d'angle
+        rivet.shader = RadialGradient(0.35f, 0.35f, 12f,
+            Color.rgb(250, 225, 160), Color.rgb(120, 85, 35), Shader.TileMode.CLAMP)
+        val rr = 9f
+        listOf(Pair(22f, 22f), Pair(w - 22f, 22f), Pair(22f, h - 22f), Pair(w - 22f, h - 22f))
+            .forEach { (x, y) ->
+                rivet.shader = RadialGradient(x - 3, y - 3, rr * 1.6f,
+                    Color.rgb(255, 240, 190), Color.rgb(110, 78, 30), Shader.TileMode.CLAMP)
+                c.drawCircle(x, y, rr, rivet)
+            }
+    }
+
+    private fun lighten(c: Int, f: Float) = Color.rgb(
+        (Color.red(c) * f).toInt().coerceAtMost(255),
+        (Color.green(c) * f).toInt().coerceAtMost(255),
+        (Color.blue(c) * f).toInt().coerceAtMost(255))
+    private fun darken(c: Int, f: Float) = Color.rgb(
+        (Color.red(c) * f).toInt(), (Color.green(c) * f).toInt(), (Color.blue(c) * f).toInt())
+}
+
+// ────────────── Manomètre analogique (cadran + aiguille + verre) ──────────────
 class PressureGauge(context: Context) : View(context) {
     private var ratio = 0f
     private val brass = Color.rgb(183, 141, 65)
-    private val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { setStyle(Paint.Style.STROKE); strokeWidth = 8f; this.color = brass }
-    private val tickP = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 3f; this.color = brass }
-    private val needle = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 6f; this.color = Color.rgb(255, 120, 40) }
+    private val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { setStyle(Paint.Style.STROKE); strokeWidth = 10f; this.color = brass }
+    private val face = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.rgb(252, 246, 228) }
+    private val tickP = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 3f; this.color = Color.rgb(90, 60, 20) }
+    private val red = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 3f; this.color = Color.rgb(180, 30, 20) }
+    private val needle = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 7f; this.color = Color.rgb(200, 40, 20) }
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.color = brass; textSize = 30f; textAlign = Paint.Align.CENTER; typeface = Typeface.SERIF
+        this.color = Color.rgb(70, 45, 15); textSize = 26f; textAlign = Paint.Align.CENTER; typeface = Typeface.SERIF
     }
+    private val glass = Paint(Paint.ANTI_ALIAS_FLAG)
     fun setValue(r: Float) { ratio = r.coerceIn(0f, 1f); invalidate() }
     override fun onDraw(c: Canvas) {
         super.onDraw(c)
         val cx = width / 2f; val cy = height * 0.85f; val r = width * 0.42f
-        c.drawCircle(cx, cy, r, body)
+        c.drawCircle(cx, cy, r + 10f, body)
+        c.drawCircle(cx, cy, r, face)
         for (i in 0..10) {
             val a = Math.PI + Math.PI * i / 10.0
+            val p = if (i >= 8) red else tickP
             c.drawLine(cx + (r * 0.82 * Math.cos(a)).toFloat(), cy + (r * 0.82 * Math.sin(a)).toFloat(),
-                       cx + (r * Math.cos(a)).toFloat(), cy + (r * Math.sin(a)).toFloat(), tickP)
+                       cx + (r * Math.cos(a)).toFloat(), cy + (r * Math.sin(a)).toFloat(), p)
         }
-        c.drawText("PRESSION hPa", cx, cy - r * 0.35f, label)
+        c.drawText("PRESSION", cx, cy - r * 0.42f, label)
+        c.drawText("hPa", cx, cy - r * 0.22f, label)
         val a = Math.PI + Math.PI * ratio
         c.drawLine(cx, cy, cx + (r * 0.78 * Math.cos(a)).toFloat(),
                    cy + (r * 0.78 * Math.sin(a)).toFloat(), needle)
-        c.drawCircle(cx, cy, 10f, needle)
+        c.drawCircle(cx, cy, 11f, needle)
+        // Reflet de verre
+        glass.shader = LinearGradient(cx - r, cy - r, cx, cy,
+            Color.argb(60, 255, 255, 255), Color.argb(0, 255, 255, 255), Shader.TileMode.CLAMP)
+        c.drawCircle(cx, cy, r, glass)
     }
 }
 
@@ -102,6 +173,7 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
     private val brass = Color.rgb(183, 141, 65)
     private val copper = Color.rgb(140, 84, 42)
     private val cream = Color.rgb(245, 230, 200)
+    private val ink = Color.rgb(48, 30, 12)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,20 +181,12 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
                        catch (e: Exception) { "Écran ${display.displayId}" }
 
         val bg = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.rgb(40, 29, 17), Color.rgb(18, 12, 7)))
+            intArrayOf(Color.rgb(45, 32, 18), Color.rgb(16, 11, 6)))
         bg.setStroke(8, copper)
 
-        fun card(): LinearLayout {
-            val d = GradientDrawable().apply {
-                cornerRadius = 30f; setStroke(4, copper)
-                setColor(Color.argb(100, 30, 21, 12))
-            }
-            return LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                background = d
-                setPadding(44, 26, 44, 26)
-            }
+        fun panel(): BrassPanel {
+            val p = BrassPanel(context, Color.rgb(60, 43, 24), Color.rgb(28, 19, 10))
+            return p
         }
 
         fun gear(sz: Float, teeth: Int, color: Int): GearView {
@@ -133,6 +197,13 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
             return g
         }
 
+        fun label(txt: String, size: Float, color: Int, bold: Boolean = false): TextView =
+            TextView(context).apply {
+                text = txt; textSize = size; setTextColor(color); gravity = Gravity.CENTER
+                typeface = Typeface.create("serif", if (bold) Typeface.BOLD else Typeface.NORMAL)
+                setShadowLayer(6f, 1f, 1f, Color.argb(120, 0, 0, 0))
+            }
+
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -142,15 +213,10 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
 
         val header = LinearLayout(context).apply { gravity = Gravity.CENTER }
         flame = TextView(context).apply { text = "🔥"; textSize = 30f }
-        val title = TextView(context).apply {
-            text = "☁️ TABLEAU DE BORD VAPEUR ☁️"
-            textSize = 32f; setTextColor(brass)
-            typeface = Typeface.create("serif", Typeface.BOLD)
-            setShadowLayer(10f, 0f, 0f, Color.argb(150, 255, 190, 80))
-        }
-        // Grand engrenages à gauche, petit au centre, grand à droite — sens alternés
+        val title = label("☁️ TABLEAU DE BORD VAPEUR ☁️", 32f, brass, true)
         listOf(gear(96f, 12, brass), gear(60f, 9, copper), gear(96f, 12, brass))
             .forEach { header.addView(it) }
+        header.addView(flame)
         pulsate(flame)
 
         clock = TextView(context).apply {
@@ -158,36 +224,25 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
             typeface = Typeface.MONOSPACE
             setShadowLayer(18f, 0f, 0f, Color.argb(130, 255, 170, 40))
         }
-        dateView = TextView(context).apply {
-            textSize = 24f; setTextColor(brass); gravity = Gravity.CENTER
-            typeface = Typeface.create("serif", Typeface.ITALIC)
-        }
+        dateView = label("", 24f, brass)
 
         val row1 = LinearLayout(context).apply { gravity = Gravity.CENTER }
-        val p1 = card()
-        weatherView = TextView(context).apply {
-            text = "⏳ La chaudière monte en pression…"
-            textSize = 20f; setTextColor(cream); gravity = Gravity.CENTER; typeface = Typeface.SERIF
-        }
-        forecastView = TextView(context).apply {
-            textSize = 16f; setTextColor(brass); gravity = Gravity.CENTER; typeface = Typeface.SERIF
-        }
+        val p1 = panel()
+        weatherView = label("⏳ La chaudière monte en pression…", 20f, ink)
+        forecastView = label("", 15f, Color.rgb(90, 60, 25))
         p1.addView(weatherView); p1.addView(forecastView)
-        val p2 = card()
+        val p2 = panel()
         gauge = PressureGauge(context)
         gauge.layoutParams = LinearLayout.LayoutParams(460, 300)
         p2.addView(gauge)
         listOf(p1, p2).forEach { row1.addView(it) }
 
-        val p3 = card()
-        btcView = TextView(context).apply {
-            text = "⏳ Les mineurs réchauffent les machines…"
-            textSize = 20f; setTextColor(cream); gravity = Gravity.CENTER; typeface = Typeface.SERIF
-        }
+        val p3 = panel()
+        btcView = label("⏳ Les mineurs réchauffent les machines…", 20f, ink)
         p3.addView(btcView)
 
         statusView = TextView(context).apply {
-            text = "⚙ $safeName · machines v2.1"
+            text = "⚙ $safeName · machines v2.2 · plaques de laiton rivetées"
             textSize = 14f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
         }
         val closeBtn = Button(context).apply { text = "🕯️ Éteindre la machine" }
