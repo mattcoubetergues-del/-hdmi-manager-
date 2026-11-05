@@ -16,15 +16,21 @@ import java.util.Locale
 class DashboardPresentation(context: Context, display: Display) : Presentation(context, display) {
 
     private val colors = intArrayOf(
-        Color.rgb(20, 24, 38),   // Nuit
-        Color.rgb(10, 60, 40),   // Vert
-        Color.rgb(70, 20, 30),   // Rouge sombre
-        Color.rgb(40, 30, 70)    // Violet
+        Color.rgb(20, 24, 38),
+        Color.rgb(10, 60, 40),
+        Color.rgb(70, 20, 30),
+        Color.rgb(40, 30, 70)
     )
     private var index = 0
     private lateinit var clock: TextView
-    private lateinit var status: TextView
     private val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val tick = object : Runnable {
+        override fun run() {
+            if (::clock.isInitialized) clock.text = fmt.format(Date())
+            handler.postDelayed(this, 1000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,60 +42,43 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
         }
 
         val title = TextView(context).apply {
-            text = "🖥️ DASHBOARD HDMI"
-            textSize = 40f
+            text = "🖥️ DASHBOARD — ${display.name}"
+            textSize = 36f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
         }
         clock = TextView(context).apply {
             textSize = 90f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(0, 220, 255))
+            setTextColor(Color.WHITE)
         }
-        status = TextView(context).apply {
-            textSize = 24f
+        val info = TextView(context).apply {
+            text = "${display.name} · ${display.mode?.physicalWidth ?: "?"}x${display.mode?.physicalHeight ?: "?"}"
+            textSize = 22f
             gravity = Gravity.CENTER
             setTextColor(Color.LTGRAY)
-            text = "Écran externe actif • ${display.mode.physicalWidth}x${display.mode.physicalHeight}"
         }
 
-        // Boutons interactifs
-        val row = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        fun addButton(label: String, action: () -> Unit) {
-            row.addView(Button(context).apply {
-                text = label
-                textSize = 18f
-                setOnClickListener { action() }
-            })
-        }
-        addButton("🎨 Thème") {
+        val themeBtn = Button(context).apply { text = "🎨 Changer le thème" }
+        val closeBtn = Button(context).apply { text = "❌ Fermer le dashboard" }
+        themeBtn.setOnClickListener {
             index = (index + 1) % colors.size
             root.setBackgroundColor(colors[index])
         }
-        addButton("✨ Bonus") {
-            status.text = listOf(
-                "Ça marche ! 🚀", "Bonjour depuis l'écran HDMI ! 👋",
-                "Battery : ${android.os.BatteryManager.BATTERY_STATUS_CHARGING}", ""
-            ).let { "Tap ! 🎉" }
-        }
+        closeBtn.setOnClickListener { dismiss() }
 
-        root.addView(title)
-        root.addView(clock)
-        root.addView(status)
-        root.addView(row)
+        listOf(title, clock, info, themeBtn, closeBtn).forEach {
+            root.addView(it, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(40, 30, 40, 30)
+            })
+        }
         setContentView(root)
-
-        // Horloge en direct
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        val tick = object : Runnable {
-            override fun run() {
-                clock.text = fmt.format(Date())
-                handler.postDelayed(this, 1000)
-            }
-        }
         handler.post(tick)
+    }
+
+    override fun onStop() {
+        handler.removeCallbacks(tick)
+        super.onStop()
     }
 }
