@@ -6,7 +6,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -27,15 +26,17 @@ import java.util.Date
 import java.util.Locale
 import org.json.JSONObject
 
-// ────────────── Engrenage dessiné (dents réelles, rotation continue) ──────────────
+// ── Palette "machine de nuit" ──
+// Fond brun très sombre, panneaux charbon, bordures cuivre lumineux, textes crème.
+
 class GearView(context: Context, private val size: Float, private val teeth: Int, color: Int) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.color = color
-        setShadowLayer(8f, 3f, 3f, Color.argb(140, 0, 0, 0))
+        setShadowLayer(10f, 0f, 0f, Color.argb(160, 255, 140, 40)) // lueur cuivrée
     }
-    private val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.argb(255, 24, 17, 10) }
+    private val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.rgb(14, 10, 6) }
     private val shine = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.color = Color.argb(90, 255, 235, 180)
+        this.color = Color.argb(110, 255, 235, 180)
         setStyle(Paint.Style.STROKE); strokeWidth = 3f
     }
     private var angle = 0f
@@ -63,79 +64,76 @@ class GearView(context: Context, private val size: Float, private val teeth: Int
         }
         c.drawCircle(cx, cy, r * 0.74f, paint)
         c.drawCircle(cx, cy, r * 0.30f, hole)
-        c.drawCircle(cx, cy, r * 0.52f, shine) // reflet métallique
+        c.drawCircle(cx, cy, r * 0.52f, shine)
         c.drawRect(cx - size * 0.03f, cy - r * 0.3f, cx + size * 0.03f, cy + r * 0.3f, paint)
         c.restore()
     }
 }
 
-// ────────────── Cadre "plaque de laiton rivetée" ──────────────
-class BrassPanel(context: Context, light: Int, dark: Int) : LinearLayout(context) {
-    private val lightC = light; private val darkC = dark
+// ── Panneau charbon à bordure cuivre lumineuse, rivets cuivre ──
+class BrassPanel(context: Context) : LinearLayout(context) {
     private val rivet = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val frame = Paint(Paint.ANTI_ALIAS_FLAG).apply { setStyle(Paint.Style.STROKE); strokeWidth = 6f }
-    private val grad = LinearGradient(0f, 0f, 0f, height.toFloat(),
-        lightC, darkC, Shader.TileMode.CLAMP)
+    private val frame = Paint(Paint.ANTI_ALIAS_FLAG).apply { setStyle(Paint.Style.STROKE) }
+    private val copper = Color.rgb(206, 120, 52)
+    private val copperGlow = Color.argb(150, 255, 150, 60)
 
     init {
         orientation = VERTICAL
         gravity = Gravity.CENTER
-        setPadding(52, 34, 52, 34)
+        setPadding(56, 40, 56, 40)
         setWillNotDraw(false)
     }
 
     override fun onDraw(c: Canvas) {
         super.onDraw(c)
-        val w = width.toFloat(); val h = height.toFloat()
-        val radius = 34f
-        // Fond laiton avec dégradé
+        val w = width.toFloat(); val h = height.toFloat(); val radius = 30f
+        // Fond charbon avec léger dégradé vertical
         val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(0f, 0f, 0f, h, lighten(lightC, 1.15f), darken(darkC, 0.7f), Shader.TileMode.CLAMP)
+            shader = LinearGradient(0f, 0f, 0f, h,
+                Color.rgb(38, 30, 22), Color.rgb(18, 13, 8), Shader.TileMode.CLAMP)
         }
         c.drawRoundRect(0f, 0f, w, h, radius, radius, bg)
-        // Bordure cuivre foncé + liseré clair
-        frame.color = darken(darkC, 0.55f); frame.strokeWidth = 8f
-        c.drawRoundRect(3f, 3f, w - 3, h - 3, radius, radius, frame)
-        frame.color = Color.argb(120, 255, 230, 170); frame.strokeWidth = 2f
-        c.drawRoundRect(10f, 10f, w - 10, h - 10, radius - 7, radius - 7, frame)
-        // 4 rivets d'angle
-        rivet.shader = RadialGradient(0.35f, 0.35f, 12f,
-            Color.rgb(250, 225, 160), Color.rgb(120, 85, 35), Shader.TileMode.CLAMP)
-        val rr = 9f
-        listOf(Pair(22f, 22f), Pair(w - 22f, 22f), Pair(22f, h - 22f), Pair(w - 22f, h - 22f))
+        // Lueur cuivre extérieure puis bordure nette
+        frame.color = copperGlow; frame.strokeWidth = 10f
+        c.drawRoundRect(5f, 5f, w - 5, h - 5, radius, radius, frame)
+        frame.color = copper; frame.strokeWidth = 5f
+        c.drawRoundRect(5f, 5f, w - 5, h - 5, radius, radius, frame)
+        // Liseré crème intérieur fin
+        frame.color = Color.argb(90, 250, 235, 200); frame.strokeWidth = 2f
+        c.drawRoundRect(14f, 14f, w - 14, h - 14, radius - 9, radius - 9, frame)
+        // 4 rivets cuivre d'angle
+        val rr = 10f
+        listOf(Pair(24f, 24f), Pair(w - 24f, 24f), Pair(24f, h - 24f), Pair(w - 24f, h - 24f))
             .forEach { (x, y) ->
-                rivet.shader = RadialGradient(x - 3, y - 3, rr * 1.6f,
-                    Color.rgb(255, 240, 190), Color.rgb(110, 78, 30), Shader.TileMode.CLAMP)
+                rivet.shader = RadialGradient(x - 3, y - 3, rr * 1.8f,
+                    Color.rgb(255, 200, 120), Color.rgb(90, 50, 18), Shader.TileMode.CLAMP)
                 c.drawCircle(x, y, rr, rivet)
             }
     }
-
-    private fun lighten(c: Int, f: Float) = Color.rgb(
-        (Color.red(c) * f).toInt().coerceAtMost(255),
-        (Color.green(c) * f).toInt().coerceAtMost(255),
-        (Color.blue(c) * f).toInt().coerceAtMost(255))
-    private fun darken(c: Int, f: Float) = Color.rgb(
-        (Color.red(c) * f).toInt(), (Color.green(c) * f).toInt(), (Color.blue(c) * f).toInt())
 }
 
-// ────────────── Manomètre analogique (cadran + aiguille + verre) ──────────────
+// ── Manomètre : cadran sombre, aiguille rouge vif, reflet de verre ──
 class PressureGauge(context: Context) : View(context) {
     private var ratio = 0f
-    private val brass = Color.rgb(183, 141, 65)
-    private val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { setStyle(Paint.Style.STROKE); strokeWidth = 10f; this.color = brass }
-    private val face = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.rgb(252, 246, 228) }
-    private val tickP = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 3f; this.color = Color.rgb(90, 60, 20) }
-    private val red = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 3f; this.color = Color.rgb(180, 30, 20) }
-    private val needle = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 7f; this.color = Color.rgb(200, 40, 20) }
+    private val copper = Color.rgb(206, 120, 52)
+    private val body = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        setStyle(Paint.Style.STROKE); strokeWidth = 12f; this.color = copper
+        setShadowLayer(12f, 0f, 0f, Color.argb(140, 255, 140, 40))
+    }
+    private val face = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.rgb(30, 24, 16) }
+    private val tickP = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 4f; this.color = Color.rgb(245, 230, 200) }
+    private val red = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 4f; this.color = Color.rgb(255, 70, 50) }
+    private val needle = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = 8f; this.color = Color.rgb(255, 80, 55) }
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.color = Color.rgb(70, 45, 15); textSize = 26f; textAlign = Paint.Align.CENTER; typeface = Typeface.SERIF
+        this.color = Color.rgb(245, 225, 180); textSize = 30f
+        textAlign = Paint.Align.CENTER; typeface = Typeface.SERIF
     }
     private val glass = Paint(Paint.ANTI_ALIAS_FLAG)
     fun setValue(r: Float) { ratio = r.coerceIn(0f, 1f); invalidate() }
     override fun onDraw(c: Canvas) {
         super.onDraw(c)
         val cx = width / 2f; val cy = height * 0.85f; val r = width * 0.42f
-        c.drawCircle(cx, cy, r + 10f, body)
+        c.drawCircle(cx, cy, r + 12f, body)
         c.drawCircle(cx, cy, r, face)
         for (i in 0..10) {
             val a = Math.PI + Math.PI * i / 10.0
@@ -143,15 +141,14 @@ class PressureGauge(context: Context) : View(context) {
             c.drawLine(cx + (r * 0.82 * Math.cos(a)).toFloat(), cy + (r * 0.82 * Math.sin(a)).toFloat(),
                        cx + (r * Math.cos(a)).toFloat(), cy + (r * Math.sin(a)).toFloat(), p)
         }
-        c.drawText("PRESSION", cx, cy - r * 0.42f, label)
-        c.drawText("hPa", cx, cy - r * 0.22f, label)
+        c.drawText("PRESSION", cx, cy - r * 0.40f, label)
+        c.drawText("hPa", cx, cy - r * 0.20f, label)
         val a = Math.PI + Math.PI * ratio
         c.drawLine(cx, cy, cx + (r * 0.78 * Math.cos(a)).toFloat(),
                    cy + (r * 0.78 * Math.sin(a)).toFloat(), needle)
-        c.drawCircle(cx, cy, 11f, needle)
-        // Reflet de verre
+        c.drawCircle(cx, cy, 12f, needle)
         glass.shader = LinearGradient(cx - r, cy - r, cx, cy,
-            Color.argb(60, 255, 255, 255), Color.argb(0, 255, 255, 255), Shader.TileMode.CLAMP)
+            Color.argb(55, 255, 255, 255), Color.argb(0, 255, 255, 255), Shader.TileMode.CLAMP)
         c.drawCircle(cx, cy, r, glass)
     }
 }
@@ -170,10 +167,9 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
     private lateinit var gauge: PressureGauge
     private lateinit var flame: TextView
 
-    private val brass = Color.rgb(183, 141, 65)
-    private val copper = Color.rgb(140, 84, 42)
-    private val cream = Color.rgb(245, 230, 200)
-    private val ink = Color.rgb(48, 30, 12)
+    private val copper = Color.rgb(206, 120, 52)
+    private val cream = Color.rgb(248, 236, 210)
+    private val soft = Color.rgb(210, 190, 160)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -181,18 +177,15 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
                        catch (e: Exception) { "Écran ${display.displayId}" }
 
         val bg = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.rgb(45, 32, 18), Color.rgb(16, 11, 6)))
-        bg.setStroke(8, copper)
+            intArrayOf(Color.rgb(24, 18, 11), Color.rgb(8, 6, 3)))
+        bg.setStroke(6, copper)
 
-        fun panel(): BrassPanel {
-            val p = BrassPanel(context, Color.rgb(60, 43, 24), Color.rgb(28, 19, 10))
-            return p
-        }
+        fun panel(): BrassPanel = BrassPanel(context)
 
         fun gear(sz: Float, teeth: Int, color: Int): GearView {
             val g = GearView(context, sz, teeth, color)
             g.layoutParams = LinearLayout.LayoutParams(sz.toInt(), sz.toInt()).apply {
-                setMargins(18, 0, 18, 0)
+                setMargins(16, 0, 16, 0)
             }
             return g
         }
@@ -200,58 +193,70 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
         fun label(txt: String, size: Float, color: Int, bold: Boolean = false): TextView =
             TextView(context).apply {
                 text = txt; textSize = size; setTextColor(color); gravity = Gravity.CENTER
-                typeface = Typeface.create("serif", if (bold) Typeface.BOLD else Typeface.NORMAL)
-                setShadowLayer(6f, 1f, 1f, Color.argb(120, 0, 0, 0))
+                typeface = Typeface.create("sans-serif", if (bold) Typeface.BOLD else Typeface.NORMAL)
+                setShadowLayer(4f, 0f, 2f, Color.argb(160, 0, 0, 0))
             }
+
+        fun wideParams(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 20, 0, 20) }
 
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             background = bg
-            setPadding(60, 40, 60, 40)
+            setPadding(70, 50, 70, 50)
         }
 
+        // ── Rangée 1 : engrenages · titre · engrenages ──
         val header = LinearLayout(context).apply { gravity = Gravity.CENTER }
-        flame = TextView(context).apply { text = "🔥"; textSize = 30f }
-        val title = label("☁️ TABLEAU DE BORD VAPEUR ☁️", 32f, brass, true)
-        listOf(gear(96f, 12, brass), gear(60f, 9, copper), gear(96f, 12, brass))
-            .forEach { header.addView(it) }
+        val flame = TextView(context).apply { text = "🔥"; textSize = 28f }
+        header.addView(gear(88f, 12, copper))
+        header.addView(gear(56f, 9, Color.rgb(150, 100, 50)))
+        header.addView(label("◈ TABLEAU DE BORD VAPEUR ◈", 34f, cream, true))
+        header.addView(gear(56f, 9, Color.rgb(150, 100, 50)))
+        header.addView(gear(88f, 12, copper))
         header.addView(flame)
         pulsate(flame)
 
+        // ── Rangée 2 : horloge géante pleine largeur ──
         clock = TextView(context).apply {
-            textSize = 96f; setTextColor(cream); gravity = Gravity.CENTER
+            textSize = 120f; setTextColor(cream); gravity = Gravity.CENTER
             typeface = Typeface.MONOSPACE
-            setShadowLayer(18f, 0f, 0f, Color.argb(130, 255, 170, 40))
+            setShadowLayer(24f, 0f, 0f, Color.argb(150, 255, 150, 40))
         }
-        dateView = label("", 24f, brass)
+        dateView = label("", 26f, copper, true)
 
-        val row1 = LinearLayout(context).apply { gravity = Gravity.CENTER }
+        // ── Rangée 3 : deux panneaux équilibrés ──
+        val row = LinearLayout(context).apply { gravity = Gravity.CENTER }
         val p1 = panel()
-        weatherView = label("⏳ La chaudière monte en pression…", 20f, ink)
-        forecastView = label("", 15f, Color.rgb(90, 60, 25))
+        p1.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            .apply { setMargins(0, 0, 24, 0) }
+        weatherView = label("⏳ La chaudière monte en pression…", 24f, cream, true)
+        forecastView = label("", 19f, soft)
         p1.addView(weatherView); p1.addView(forecastView)
         val p2 = panel()
+        p2.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            .apply { setMargins(24, 0, 0, 0) }
         gauge = PressureGauge(context)
-        gauge.layoutParams = LinearLayout.LayoutParams(460, 300)
+        gauge.layoutParams = LinearLayout.LayoutParams(500, 320)
         p2.addView(gauge)
-        listOf(p1, p2).forEach { row1.addView(it) }
+        row.addView(p1); row.addView(p2)
 
+        // ── Rangée 4 : Bitcoin pleine largeur, gros chiffres ──
         val p3 = panel()
-        btcView = label("⏳ Les mineurs réchauffent les machines…", 20f, ink)
+        btcView = label("⏳ Les mineurs réchauffent les machines…", 26f, cream, true)
         p3.addView(btcView)
 
         statusView = TextView(context).apply {
-            text = "⚙ $safeName · machines v2.2 · plaques de laiton rivetées"
-            textSize = 14f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
+            text = "⚙ $safeName · v2.3 · machine de nuit"
+            textSize = 15f; setTextColor(Color.rgb(150, 130, 100)); gravity = Gravity.CENTER
         }
         val closeBtn = Button(context).apply { text = "🕯️ Éteindre la machine" }
         closeBtn.setOnClickListener { dismiss() }
 
-        listOf(header, clock, dateView, row1, p3, closeBtn, statusView).forEach {
-            root.addView(it, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 18, 0, 18) })
+        listOf(header, clock, dateView, row, p3, closeBtn, statusView).forEach {
+            root.addView(it, wideParams())
         }
         setContentView(root)
 
@@ -298,7 +303,7 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
             val pressure = c.getDouble("surface_pressure")
             main.post {
                 weatherView.text = String.format(Locale.FRANCE,
-                    "🌡️ %.1f°C   💨 %.0f km/h   💧 %d%%",
+                    "🌡️ %.1f°C    💨 %.0f km/h    💧 %d%%",
                     c.getDouble("temperature_2m"), c.getDouble("wind_speed_10m"),
                     c.getInt("relative_humidity_2m"))
                 forecastView.text = sb.toString()
@@ -317,7 +322,7 @@ class DashboardPresentation(context: Context, display: Display) : Presentation(c
             val arrow = if (chg >= 0) "📈" else "📉"
             main.post {
                 btcView.text = String.format(Locale.FRANCE,
-                    "⛏️ BITCOIN  %s €  ·  %s $   %s %.1f%% (24 h)",
+                    "⛏️ BITCOIN   %s €   ·   %s $    %s %.1f%% (24 h)",
                     java.text.NumberFormat.getIntegerInstance(Locale.FRANCE).format(btc.getLong("eur")),
                     java.text.NumberFormat.getIntegerInstance(Locale.US).format(btc.getLong("usd")),
                     arrow, chg)
