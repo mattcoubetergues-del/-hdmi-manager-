@@ -35,7 +35,7 @@ class MainActivity : Activity() {
             val flags = d.flags
             info.append("  Présentation : ${if (flags and Display.FLAG_PRESENTATION != 0) "Oui" else "Non"}\n")
             info.append("  Sécurisé : ${if (flags and Display.FLAG_SECURE != 0) "Oui" else "Non"}\n")
-            val m = d.realMetrics ?: android.util.DisplayMetrics()
+            val m = android.util.DisplayMetrics(); d.getRealMetrics(m)
             info.append("  Résolution : ${m.widthPixels} x ${m.heightPixels}\n\n")
         }
 
