@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="screen_background">#F4F6FA</color>
+    <color name="text_primary">#182230</color>
+    <color name="text_secondary">#58677A</color>
+    <color name="row_background">#FFFFFF</color>
+    <color name="row_stroke">#DFE5EE</color>
+    <color name="presentation_background">#10243A</color>
+    <color name="presentation_text">#FFFFFF</color>
+    <style name="Theme.HdmiManager" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#1769AA</item>
+        <item name="colorPrimaryVariant">#10243A</item>
+        <item name="colorSecondary">#45B7A5</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:statusBarColor">#F4F6FA</item>
+        <item name="android:navigationBarColor">#F4F6FA</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

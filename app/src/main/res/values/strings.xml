@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Gestionnaire HDMI</string>
+    <string name="screen_title">Écrans</string>
+    <string name="screen_subtitle">Écrans détectés sur cet appareil</string>
+    <string name="displays_heading">Affichages disponibles</string>
+    <string name="launch_presentation">Lancer la présentation sur l’écran externe</string>
+    <string name="no_displays">Aucun écran détecté.</string>
+    <string name="primary_display">Écran principal</string>
+    <string name="presentation_display">Écran de présentation</string>
+    <string name="other_display">Écran externe</string>
+    <string name="display_details">ID %1$d · %2$s\n%3$s · %4$s\n%5$d × %6$d px · %7$d dpi</string>
+    <string name="type_builtin">Intégré</string>
+    <string name="type_hdmi">HDMI</string>
+    <string name="type_wifi">Wi-Fi</string>
+    <string name="type_overlay">Superposition</string>
+    <string name="type_virtual">Virtuel</string>
+    <string name="type_unknown">Type inconnu (%1$d)</string>
+    <string name="no_external_display">Aucun écran externe disponible.</string>
+    <string name="presentation_message">Présentation de démonstration\n\nÉcran : %1$s</string>
+</resources>
