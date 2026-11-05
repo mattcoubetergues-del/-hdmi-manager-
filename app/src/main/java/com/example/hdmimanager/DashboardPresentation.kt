@@ -72,7 +72,7 @@ class GearView(context: Context, sizePx: Float, private val teeth: Int, color: I
 
 // ── Panneau charbon, bordure cuivre, rivets — toutes dimensions proportionnelles ──
 class BrassPanel(context: Context, scale: Float) : LinearLayout(context) {
-    private val s = scale
+    private val s: (Float) -> Float = { v: Float -> v * scale }
     private val rivet = Paint(Paint.ANTI_ALIAS_FLAG)
     private val frame = Paint(Paint.ANTI_ALIAS_FLAG).apply { setStyle(Paint.Style.STROKE) }
     private val copper = Color.rgb(206, 120, 52)
@@ -81,7 +81,7 @@ class BrassPanel(context: Context, scale: Float) : LinearLayout(context) {
     init {
         orientation = VERTICAL
         gravity = Gravity.CENTER
-        setPadding(s(56), s(40), s(56), s(40))
+        setPadding(s(56).toInt(), s(40).toInt(), s(56).toInt(), s(40).toInt())
         setWillNotDraw(false)
     }
 
@@ -100,12 +100,13 @@ class BrassPanel(context: Context, scale: Float) : LinearLayout(context) {
         frame.color = Color.argb(90, 250, 235, 200); frame.strokeWidth = s(2)
         c.drawRoundRect(s(14), s(14), w - s(14), h - s(14), radius - s(9), radius - s(9), frame)
         val m = s(24); val rr = s(10)
-        listOf(Pair(m, m), Pair(w - m, m), Pair(m, h - m), Pair(w - m, h - m))
-            .forEach { (x, y) ->
-                rivet.shader = RadialGradient(x - rr * 0.3f, y - rr * 0.3f, rr * 1.8f,
-                    Color.rgb(255, 200, 120), Color.rgb(90, 50, 18), Shader.TileMode.CLAMP)
-                c.drawCircle(x, y, rr, rivet)
-            }
+        val corners = listOf(m to m, w - m to m, m to h - m, w - m to h - m)
+        for (corner in corners) {
+            val x = corner.first; val y = corner.second
+            rivet.shader = RadialGradient(x - rr * 0.3f, y - rr * 0.3f, rr * 1.8f,
+                Color.rgb(255, 200, 120), Color.rgb(90, 50, 18), Shader.TileMode.CLAMP)
+            c.drawCircle(x, y, rr, rivet)
+        }
     }
 }
 
